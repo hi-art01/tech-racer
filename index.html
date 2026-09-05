@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0c0e13" />
+    <title>Flashread — speed reading, one word at a time</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <nav class="topbar">
+        <a class="brand" href="#" aria-label="Flashread home"><span class="brand-mark">✦</span> flashread</a>
+        <div class="nav-note"><span class="status-dot"></span> one word at a time</div>
+      </nav>
+
+      <section class="hero" id="setupView">
+        <div class="eyebrow">FOCUS MODE <span></span> RSVP READER</div>
+        <h1>Read at the<br /><em>speed of thought.</em></h1>
+        <p class="intro">Drop in a document, find your pace, and let each word arrive exactly when you need it.</p>
+
+        <div class="input-card">
+          <div class="card-heading">
+            <label for="documentInput">Your document</label>
+            <span id="wordCount">0 words</span>
+          </div>
+          <textarea id="documentInput" placeholder="Paste an article, essay, or anything you want to read..." spellcheck="true"></textarea>
+          <div class="input-footer">
+            <label class="file-button" for="fileInput"><span>↥</span> Open a .txt file</label>
+            <input id="fileInput" type="file" accept=".txt,text/plain" />
+            <span class="hint">Tip: you can paste directly here</span>
+          </div>
+        </div>
+
+        <div class="controls-row">
+          <div class="speed-control">
+            <div class="speed-label"><span>Reading speed</span><strong><span id="speedValue">300</span> <small>WPM</small></strong></div>
+            <input id="speedInput" type="range" min="100" max="500" step="10" value="300" aria-label="Reading speed in words per minute" />
+            <div class="range-labels"><span>100 SLOW</span><span>500 FAST</span></div>
+          </div>
+          <button class="start-button" id="startButton" type="button"><span>Start reading</span><b>→</b></button>
+        </div>
+        <p class="shortcut-note">Press <kbd>Space</kbd> to pause or resume while reading</p>
+      </section>
+
+      <section class="reader" id="readerView" hidden>
+        <div class="reader-topline"><button class="back-button" id="backButton">← Edit document</button><span id="readerSpeed">300 WPM</span></div>
+        <div class="word-stage" aria-live="polite" aria-atomic="true"><div class="word-window"><div class="word-stream" id="wordStream"><span class="word-placeholder">Ready?</span></div></div><div class="focus-line"></div></div>
+        <div class="reader-controls">
+          <button class="round-button" id="restartButton" aria-label="Restart reading">↺</button>
+          <button class="pause-button" id="pauseButton"><span class="pause-icon">Ⅱ</span><span id="pauseLabel">Pause</span></button>
+          <button class="round-button" id="readerSpeedButton" aria-label="Return to speed setting">⌁</button>
+        </div>
+        <div class="progress-area"><div class="progress-meta"><span id="progressText">0 / 0 words</span><span id="progressPercent">0%</span></div><div class="progress-track"><div class="progress-bar" id="progressBar"></div></div></div>
+        <p class="reader-hint"><kbd>Space</kbd> pause <span>·</span> <kbd>R</kbd> restart <span>·</span> <kbd>Esc</kbd> edit</p>
+      </section>
+
+      <footer><span>Designed for deep work</span><span>100 — 500 WPM</span></footer>
+    </main>
+    <script src="script.js"></script>
+  </body>
+</html>
