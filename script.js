@@ -72,6 +72,7 @@ function sanitizePastedNode(node, documentFragment) {
   }
   if (isHighlightedElement(element)) {
     const mark = document.createElement('mark');
+    if (element.style.backgroundColor) mark.style.backgroundColor = element.style.backgroundColor;
     mark.append(content);
     content = document.createDocumentFragment();
     content.append(mark);
@@ -145,6 +146,60 @@ function getEmphasizedText(root) {
   return text.replace(/[ \t]*\n[ \t]*/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+function getEmphasizedContent(root) {
+  const blockTags = new Set(['ADDRESS', 'ARTICLE', 'BLOCKQUOTE', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'P', 'PRE', 'TR']);
+
+  function extract(node, inheritedEmphasis) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return inheritedEmphasis && node.nodeValue ? document.createTextNode(node.nodeValue) : null;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+
+    const element = node;
+    if (element.tagName === 'BR') return document.createElement('br');
+
+    const isBlock = blockTags.has(element.tagName);
+    const isBold = isBoldElement(element);
+    const isHighlighted = isHighlightedElement(element);
+    const emphasized = inheritedEmphasis || isBold || isHighlighted;
+    const children = document.createDocumentFragment();
+    for (const child of element.childNodes) {
+      const extracted = extract(child, emphasized);
+      if (extracted) children.append(extracted);
+    }
+    if (!children.textContent) return null;
+
+    let result = children;
+    if (isBlock) {
+      const block = document.createElement('div');
+      block.append(result);
+      result = document.createDocumentFragment();
+      result.append(block);
+    }
+    if (isBold) {
+      const strong = document.createElement('strong');
+      strong.append(result);
+      result = document.createDocumentFragment();
+      result.append(strong);
+    }
+    if (isHighlighted) {
+      const mark = document.createElement('mark');
+      if (element.style.backgroundColor) mark.style.backgroundColor = element.style.backgroundColor;
+      mark.append(result);
+      result = document.createDocumentFragment();
+      result.append(mark);
+    }
+    return result;
+  }
+
+  const content = document.createDocumentFragment();
+  for (const child of root.childNodes) {
+    const extracted = extract(child, false);
+    if (extracted) content.append(extracted);
+  }
+  return content;
+}
+
 document.querySelector('#openRhetorisiser').addEventListener('click', () => {
   setupView.hidden = true;
   readerView.hidden = true;
@@ -156,19 +211,28 @@ document.querySelector('#toolBackButton').addEventListener('click', () => {
 });
 rhetorisiserInput.addEventListener('paste', insertPastedContent);
 rhetorisiserInput.addEventListener('input', () => {
-  rhetorisiserOutput.value = '';
+  rhetorisiserOutput.replaceChildren();
   copyResultButton.disabled = true;
   extractStatus.textContent = 'Click Keep bold + highlighted to extract';
 });
 document.querySelector('#extractButton').addEventListener('click', () => {
   const extracted = getEmphasizedText(rhetorisiserInput);
-  rhetorisiserOutput.value = extracted;
+  rhetorisiserOutput.replaceChildren(getEmphasizedContent(rhetorisiserInput));
   copyResultButton.disabled = !extracted;
   extractStatus.textContent = extracted ? `${extracted.split(/\s+/).length.toLocaleString()} words kept` : 'No bold or highlighted text found';
 });
 copyResultButton.addEventListener('click', async () => {
   try {
-    await navigator.clipboard.writeText(rhetorisiserOutput.value);
+    const plainText = getEmphasizedText(rhetorisiserInput);
+    const html = rhetorisiserOutput.innerHTML;
+    if (navigator.clipboard.write && window.ClipboardItem) {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plainText], { type: 'text/plain' })
+      })]);
+    } else {
+      await navigator.clipboard.writeText(plainText);
+    }
     extractStatus.textContent = 'Copied to clipboard';
   } catch {
     extractStatus.textContent = 'Copy failed; select and copy the result manually';
