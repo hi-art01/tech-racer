@@ -47,44 +47,31 @@ function isHighlightedElement(element) {
   return element.tagName === 'MARK' || Boolean(background && background !== 'transparent' && background !== 'none');
 }
 
-function sanitizePastedNode(node, documentFragment) {
-  if (node.nodeType === Node.TEXT_NODE) {
-    documentFragment.append(document.createTextNode(node.nodeValue));
-    return;
+const allowedPasteTags = new Set(['A','B','BLOCKQUOTE','BR','CODE','DEL','DIV','EM','I','LI','MARK','OL','P','S','SMALL','SPAN','STRIKE','STRONG','SUB','SUP','U','UL']);
+const allowedPasteStyles = new Set(['background-color','color','font-family','font-size','font-style','font-weight','text-decoration','text-decoration-color','text-decoration-line','vertical-align']);
+function sanitizePastedNode(node) {
+  if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.nodeValue);
+  if (node.nodeType !== Node.ELEMENT_NODE || ['SCRIPT','STYLE','IFRAME','OBJECT','SVG'].includes(node.tagName)) return null;
+  const source = node;
+  const isBlock = /^(ADDRESS|ARTICLE|BLOCKQUOTE|DIV|H[1-6]|LI|P|PRE|TR)$/.test(source.tagName);
+  const tag = isBlock ? 'div' : allowedPasteTags.has(source.tagName) ? source.tagName.toLowerCase() : 'span';
+  const clean = document.createElement(tag);
+  if (tag === 'a' && /^(https?:|mailto:)/i.test(source.getAttribute('href') || '')) clean.setAttribute('href', source.getAttribute('href'));
+  for (const declaration of (source.getAttribute('style') || '').split(';')) {
+    const colon = declaration.indexOf(':');
+    if (colon < 0) continue;
+    const property = declaration.slice(0, colon).trim().toLowerCase();
+    const value = declaration.slice(colon + 1).trim();
+    if (allowedPasteStyles.has(property) && value && !/url\s*\(|expression\s*\(/i.test(value)) clean.style.setProperty(property, value);
   }
-  if (node.nodeType !== Node.ELEMENT_NODE) return;
-
-  const element = node;
-  if (element.tagName === 'BR') {
-    documentFragment.append(document.createElement('br'));
-    return;
+  if (source.getAttribute('bgcolor') && !clean.style.backgroundColor) clean.style.backgroundColor = source.getAttribute('bgcolor');
+  for (const child of source.childNodes) {
+    const safeChild = sanitizePastedNode(child);
+    if (safeChild) clean.appendChild(safeChild);
   }
-
-  const children = document.createDocumentFragment();
-  for (const child of element.childNodes) sanitizePastedNode(child, children);
-
-  let content = children;
-  if (isBoldElement(element)) {
-    const strong = document.createElement('strong');
-    strong.append(content);
-    content = document.createDocumentFragment();
-    content.append(strong);
-  }
-  if (isHighlightedElement(element)) {
-    const mark = document.createElement('mark');
-    if (element.style.backgroundColor) mark.style.backgroundColor = element.style.backgroundColor;
-    mark.append(content);
-    content = document.createDocumentFragment();
-    content.append(mark);
-  }
-
-  if (/^(ADDRESS|ARTICLE|BLOCKQUOTE|DIV|H[1-6]|LI|P|PRE|TR)$/.test(element.tagName)) {
-    const block = document.createElement('div');
-    block.append(content);
-    content = document.createDocumentFragment();
-    content.append(block);
-  }
-  documentFragment.append(content);
+  if (isBoldElement(source) && !['B','STRONG'].includes(tag.toUpperCase()) && !clean.style.fontWeight) clean.style.fontWeight = 'bold';
+  if (isHighlightedElement(source) && tag !== 'mark' && !clean.style.backgroundColor) clean.style.backgroundColor = '#ffe58a';
+  return clean;
 }
 
 function insertPastedContent(event) {
@@ -93,7 +80,10 @@ function insertPastedContent(event) {
   const fragment = document.createDocumentFragment();
   if (html) {
     const parsed = new DOMParser().parseFromString(html, 'text/html');
-    for (const child of parsed.body.childNodes) sanitizePastedNode(child, fragment);
+    for (const child of parsed.body.childNodes) {
+      const safe = sanitizePastedNode(child);
+      if (safe) fragment.appendChild(safe);
+    }
   } else {
     const lines = event.clipboardData.getData('text/plain').split(/\r?\n/);
     lines.forEach((line, index) => {
@@ -147,49 +137,39 @@ function getEmphasizedText(root) {
 }
 
 function getEmphasizedContent(root) {
-  const blockTags = new Set(['ADDRESS', 'ARTICLE', 'BLOCKQUOTE', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'P', 'PRE', 'TR']);
-
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+  const preservedSeparators = new Set();
+  const emphasizedText = textNode => {
+    for (let element = textNode.parentElement; element && element !== root; element = element.parentElement) {
+      if (isBoldElement(element) || isHighlightedElement(element)) return true;
+    }
+    return false;
+  };
+  for (let i = 0; i < textNodes.length; i += 1) {
+    if (textNodes[i].nodeValue.trim()) continue;
+    let previous = i - 1, next = i + 1;
+    while (previous >= 0 && !textNodes[previous].nodeValue.trim()) previous -= 1;
+    while (next < textNodes.length && !textNodes[next].nodeValue.trim()) next += 1;
+    if (previous >= 0 && next < textNodes.length && emphasizedText(textNodes[previous]) && emphasizedText(textNodes[next])) preservedSeparators.add(textNodes[i]);
+  }
   function extract(node, inheritedEmphasis) {
     if (node.nodeType === Node.TEXT_NODE) {
-      return inheritedEmphasis && node.nodeValue ? document.createTextNode(node.nodeValue) : null;
+      return (inheritedEmphasis || preservedSeparators.has(node)) && node.nodeValue ? document.createTextNode(node.nodeValue) : null;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return null;
 
     const element = node;
     if (element.tagName === 'BR') return document.createElement('br');
 
-    const isBlock = blockTags.has(element.tagName);
-    const isBold = isBoldElement(element);
-    const isHighlighted = isHighlightedElement(element);
-    const emphasized = inheritedEmphasis || isBold || isHighlighted;
-    const children = document.createDocumentFragment();
+    const emphasized = inheritedEmphasis || isBoldElement(element) || isHighlightedElement(element);
+    const clone = element.cloneNode(false);
     for (const child of element.childNodes) {
       const extracted = extract(child, emphasized);
-      if (extracted) children.append(extracted);
+      if (extracted) clone.appendChild(extracted);
     }
-    if (!children.textContent) return null;
-
-    let result = children;
-    if (isBlock) {
-      const block = document.createElement('div');
-      block.append(result);
-      result = document.createDocumentFragment();
-      result.append(block);
-    }
-    if (isBold) {
-      const strong = document.createElement('strong');
-      strong.append(result);
-      result = document.createDocumentFragment();
-      result.append(strong);
-    }
-    if (isHighlighted) {
-      const mark = document.createElement('mark');
-      if (element.style.backgroundColor) mark.style.backgroundColor = element.style.backgroundColor;
-      mark.append(result);
-      result = document.createDocumentFragment();
-      result.append(mark);
-    }
-    return result;
+    return clone.childNodes.length ? clone : null;
   }
 
   const content = document.createDocumentFragment();
@@ -213,17 +193,24 @@ rhetorisiserInput.addEventListener('paste', insertPastedContent);
 rhetorisiserInput.addEventListener('input', () => {
   rhetorisiserOutput.replaceChildren();
   copyResultButton.disabled = true;
-  extractStatus.textContent = 'Click Keep bold + highlighted to extract';
+  extractStatus.textContent = 'Click Rhetorisise to extract';
 });
 document.querySelector('#extractButton').addEventListener('click', () => {
-  const extracted = getEmphasizedText(rhetorisiserInput);
   rhetorisiserOutput.replaceChildren(getEmphasizedContent(rhetorisiserInput));
-  copyResultButton.disabled = !extracted;
-  extractStatus.textContent = extracted ? `${extracted.split(/\s+/).length.toLocaleString()} words kept` : 'No bold or highlighted text found';
+  const outputText = rhetorisiserOutput.innerText.trim();
+  const count = outputText ? outputText.split(/\s+/).length : 0;
+  copyResultButton.disabled = !count;
+  extractStatus.textContent = count ? `${count.toLocaleString()} ${count === 1 ? 'word' : 'words'} kept — edit if needed` : 'No bold or highlighted text found';
+});
+rhetorisiserOutput.addEventListener('input', () => {
+  const text = rhetorisiserOutput.innerText.trim();
+  const count = text ? text.split(/\s+/).length : 0;
+  copyResultButton.disabled = !count;
+  extractStatus.textContent = count ? `${count.toLocaleString()} ${count === 1 ? 'word' : 'words'} — edited result` : 'Result is empty';
 });
 copyResultButton.addEventListener('click', async () => {
   try {
-    const plainText = getEmphasizedText(rhetorisiserInput);
+    const plainText = rhetorisiserOutput.innerText.trim();
     const html = rhetorisiserOutput.innerHTML;
     if (navigator.clipboard.write && window.ClipboardItem) {
       await navigator.clipboard.write([new ClipboardItem({

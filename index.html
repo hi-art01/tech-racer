@@ -50,22 +50,22 @@
       <section class="tool-view" id="rhetorisiserView" hidden>
         <div class="tool-topline"><button class="back-button" id="toolBackButton" type="button">← Back to speed reader</button><span>TEXT TOOL</span></div>
         <h1>Rhetorisiser</h1>
-        <p class="intro">Keep only the bolded and highlighted parts of your text.</p>
+        <p class="intro">Paste your cards with their formatting. Keep only bold and highlighted text, then edit the result before copying.</p>
         <div class="input-card">
           <div class="card-heading">
-            <label for="rhetorisiserInput">Paste formatted text</label>
+            <label for="rhetorisiserInput">Paste your cards</label>
             <span>Bold + highlight only</span>
           </div>
-          <div id="rhetorisiserInput" class="rich-input" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Paste formatted text" data-placeholder="Paste text from a source that preserves bold and highlight formatting..."></div>
-          <div class="input-footer"><span class="hint">Rich formatting is preserved when copied from Word, Docs, or a web page.</span></div>
+          <div id="rhetorisiserInput" class="rich-input" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Paste your cards" data-placeholder="Paste cards here. Bold or highlight the parts you want to keep..."></div>
+          <div class="input-footer"><span class="hint">Formatting from Word, Docs, and web pages is kept when you paste.</span></div>
         </div>
         <div class="tool-actions">
-          <button class="start-button" id="extractButton" type="button"><span>Keep bold + highlighted</span><b>→</b></button>
+          <button class="start-button" id="extractButton" type="button"><span>Rhetorisise</span><b>↓</b></button>
         </div>
         <div class="input-card result-card">
-          <div class="card-heading"><label for="rhetorisiserOutput">Kept text</label><span id="extractStatus" aria-live="polite">Nothing extracted yet</span></div>
-          <div id="rhetorisiserOutput" class="rich-output" aria-label="Extracted bold and highlighted text"></div>
-          <div class="input-footer"><button class="file-button" id="copyResultButton" type="button" disabled>Copy result</button></div>
+          <div class="card-heading"><label for="rhetorisiserOutput">Your cleaned cards</label><span id="extractStatus" aria-live="polite">Ready when you are</span></div>
+          <div id="rhetorisiserOutput" class="rich-output" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Cleaned cards, editable" data-placeholder="Bold and highlighted text will appear here. Edit it before copying."></div>
+          <div class="input-footer"><span class="hint">Click here to make final edits</span><button class="file-button" id="copyResultButton" type="button" disabled>Copy result</button></div>
         </div>
       </section>
 
