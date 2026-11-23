@@ -44,6 +44,29 @@
           <button class="start-button" id="startButton" type="button"><span>Start reading</span><b>→</b></button>
         </div>
         <p class="shortcut-note">Press <kbd>Space</kbd> to pause or resume while reading</p>
+        <button class="tool-link" id="openRhetorisiser" type="button">Open Rhetorisiser <span>→</span></button>
+      </section>
+
+      <section class="tool-view" id="rhetorisiserView" hidden>
+        <div class="tool-topline"><button class="back-button" id="toolBackButton" type="button">← Back to speed reader</button><span>TEXT TOOL</span></div>
+        <h1>Rhetorisiser</h1>
+        <p class="intro">Keep only the bolded and highlighted parts of your text.</p>
+        <div class="input-card">
+          <div class="card-heading">
+            <label for="rhetorisiserInput">Paste formatted text</label>
+            <span>Bold + highlight only</span>
+          </div>
+          <div id="rhetorisiserInput" class="rich-input" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Paste formatted text" data-placeholder="Paste text from a source that preserves bold and highlight formatting..."></div>
+          <div class="input-footer"><span class="hint">Rich formatting is preserved when copied from Word, Docs, or a web page.</span></div>
+        </div>
+        <div class="tool-actions">
+          <button class="start-button" id="extractButton" type="button"><span>Keep bold + highlighted</span><b>→</b></button>
+        </div>
+        <div class="input-card result-card">
+          <div class="card-heading"><label for="rhetorisiserOutput">Kept text</label><span id="extractStatus" aria-live="polite">Nothing extracted yet</span></div>
+          <textarea id="rhetorisiserOutput" class="result-input" readonly placeholder="Your bolded and highlighted text will appear here..."></textarea>
+          <div class="input-footer"><button class="file-button" id="copyResultButton" type="button" disabled>Copy result</button></div>
+        </div>
       </section>
 
       <section class="reader" id="readerView" hidden>
