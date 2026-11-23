@@ -37,8 +37,9 @@ document.addEventListener('keydown', e => { if (e.code === 'Space' && (!setupVie
 updateCount(); updateSlider();
 
 function isBoldElement(element) {
-  const weight = element.style.fontWeight;
-  return element.tagName === 'B' || element.tagName === 'STRONG' || weight === 'bold' || weight === 'bolder' || Number(weight) >= 600;
+  const weight = (element.style.fontWeight || '').trim().toLowerCase();
+  const numericWeight = Number.parseInt(weight, 10);
+  return element.tagName === 'B' || element.tagName === 'STRONG' || weight === 'bold' || weight === 'bolder' || (Number.isFinite(numericWeight) && numericWeight >= 600);
 }
 
 function isHighlightedElement(element) {
@@ -154,20 +155,39 @@ function getEmphasizedContent(root) {
     while (next < textNodes.length && !textNodes[next].nodeValue.trim()) next += 1;
     if (previous >= 0 && next < textNodes.length && emphasizedText(textNodes[previous]) && emphasizedText(textNodes[next])) preservedSeparators.add(textNodes[i]);
   }
+  const state = { keptText: false, removedText: false, previousCharacter: '' };
   function extract(node, inheritedEmphasis) {
     if (node.nodeType === Node.TEXT_NODE) {
-      return (inheritedEmphasis || preservedSeparators.has(node)) && node.nodeValue ? document.createTextNode(node.nodeValue) : null;
+      const emphasized = inheritedEmphasis || preservedSeparators.has(node);
+      if (!emphasized || !node.nodeValue) {
+        if (node.nodeValue) state.removedText = true;
+        return null;
+      }
+      const text = node.nodeValue;
+      const firstCharacter = text.trimStart()[0] || '';
+      const needsSpace = state.keptText && state.removedText && state.previousCharacter && firstCharacter && !/\s/.test(state.previousCharacter) && !/\s/.test(firstCharacter);
+      state.keptText = true;
+      state.removedText = false;
+      state.previousCharacter = text.trimEnd().slice(-1) || state.previousCharacter;
+      return document.createTextNode(`${needsSpace ? ' ' : ''}${text}`);
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return null;
 
     const element = node;
-    if (element.tagName === 'BR') return document.createElement('br');
+    if (element.tagName === 'BR') {
+      if (inheritedEmphasis) return document.createElement('br');
+      state.removedText = true;
+      return null;
+    }
 
     const emphasized = inheritedEmphasis || isBoldElement(element) || isHighlightedElement(element);
     const clone = element.cloneNode(false);
     for (const child of element.childNodes) {
       const extracted = extract(child, emphasized);
       if (extracted) clone.appendChild(extracted);
+    }
+    if (/^(ADDRESS|ARTICLE|BLOCKQUOTE|DIV|H[1-6]|LI|P|PRE|TR)$/.test(element.tagName) && clone.childNodes.length) {
+      state.removedText = false;
     }
     return clone.childNodes.length ? clone : null;
   }
