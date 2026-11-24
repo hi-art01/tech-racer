@@ -61,3 +61,4 @@ input[type=range] { appearance:none; width:100%; height:4px; border-radius:3px; 
 .rich-output { white-space:normal; }
 .rich-output[contenteditable="true"] { outline:none; }
 .input-footer .hint { margin-right:auto; }
+.version-label { margin-left:12px; padding:4px 6px; border:1px solid #3c4b2e; border-radius:4px; color:var(--accent); letter-spacing:.04em; }
