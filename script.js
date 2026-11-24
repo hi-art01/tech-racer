@@ -38,8 +38,21 @@ updateCount(); updateSlider();
 
 function isBoldElement(element) {
   const weight = (element.style.fontWeight || '').trim().toLowerCase();
-  const numericWeight = Number.parseInt(weight, 10);
-  return element.tagName === 'B' || element.tagName === 'STRONG' || weight === 'bold' || weight === 'bolder' || (Number.isFinite(numericWeight) && numericWeight >= 600);
+  if (weight) return weight === 'bold' || weight === 'bolder' || Number.parseInt(weight, 10) >= 600;
+  return element.tagName === 'B' || element.tagName === 'STRONG';
+}
+
+function getTextEmphasis(textNode, root) {
+  const path = [];
+  for (let element = textNode.parentElement; element && element !== root; element = element.parentElement) path.unshift(element);
+  let bold = false;
+  let highlighted = false;
+  for (const element of path) {
+    if (element.style.fontWeight) bold = isBoldElement(element);
+    else if (element.tagName === 'B' || element.tagName === 'STRONG') bold = true;
+    if (isHighlightedElement(element)) highlighted = true;
+  }
+  return { bold, highlighted, emphasized: bold || highlighted };
 }
 
 function isHighlightedElement(element) {
@@ -110,44 +123,12 @@ function insertPastedContent(event) {
   rhetorisiserInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-function getEmphasizedText(root) {
-  let text = '';
-  const blockTags = new Set(['ADDRESS', 'ARTICLE', 'BLOCKQUOTE', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'P', 'PRE', 'TR']);
-
-  function visit(node, emphasized) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      if (emphasized) text += node.nodeValue;
-      return;
-    }
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-
-    const element = node;
-    if (element.tagName === 'BR') {
-      text += '\n';
-      return;
-    }
-    const keep = emphasized || isBoldElement(element) || isHighlightedElement(element);
-    const isBlock = blockTags.has(element.tagName);
-    if (isBlock && text && !text.endsWith('\n')) text += '\n';
-    for (const child of element.childNodes) visit(child, keep);
-    if (isBlock && text && !text.endsWith('\n')) text += '\n';
-  }
-
-  visit(root, false);
-  return text.replace(/[ \t]*\n[ \t]*/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
-}
-
 function getEmphasizedContent(root) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const textNodes = [];
   while (walker.nextNode()) textNodes.push(walker.currentNode);
   const preservedSeparators = new Set();
-  const emphasizedText = textNode => {
-    for (let element = textNode.parentElement; element && element !== root; element = element.parentElement) {
-      if (isBoldElement(element) || isHighlightedElement(element)) return true;
-    }
-    return false;
-  };
+  const emphasizedText = textNode => getTextEmphasis(textNode, root).emphasized;
   for (let i = 0; i < textNodes.length; i += 1) {
     if (textNodes[i].nodeValue.trim()) continue;
     let previous = i - 1, next = i + 1;
@@ -156,9 +137,9 @@ function getEmphasizedContent(root) {
     if (previous >= 0 && next < textNodes.length && emphasizedText(textNodes[previous]) && emphasizedText(textNodes[next])) preservedSeparators.add(textNodes[i]);
   }
   const state = { keptText: false, removedText: false, previousCharacter: '' };
-  function extract(node, inheritedEmphasis) {
+  function extract(node) {
     if (node.nodeType === Node.TEXT_NODE) {
-      const emphasized = inheritedEmphasis || preservedSeparators.has(node);
+      const emphasized = getTextEmphasis(node, root).emphasized || preservedSeparators.has(node);
       if (!emphasized || !node.nodeValue) {
         if (node.nodeValue) state.removedText = true;
         return null;
@@ -175,15 +156,14 @@ function getEmphasizedContent(root) {
 
     const element = node;
     if (element.tagName === 'BR') {
-      if (inheritedEmphasis) return document.createElement('br');
+      if (getTextEmphasis(element, root).emphasized) return document.createElement('br');
       state.removedText = true;
       return null;
     }
 
-    const emphasized = inheritedEmphasis || isBoldElement(element) || isHighlightedElement(element);
     const clone = element.cloneNode(false);
     for (const child of element.childNodes) {
-      const extracted = extract(child, emphasized);
+      const extracted = extract(child);
       if (extracted) clone.appendChild(extracted);
     }
     if (/^(ADDRESS|ARTICLE|BLOCKQUOTE|DIV|H[1-6]|LI|P|PRE|TR)$/.test(element.tagName) && clone.childNodes.length) {
@@ -194,7 +174,7 @@ function getEmphasizedContent(root) {
 
   const content = document.createDocumentFragment();
   for (const child of root.childNodes) {
-    const extracted = extract(child, false);
+    const extracted = extract(child);
     if (extracted) content.append(extracted);
   }
   return content;
