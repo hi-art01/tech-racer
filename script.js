@@ -57,11 +57,14 @@ function getTextEmphasis(textNode, root) {
 
 function isHighlightedElement(element) {
   if (element.tagName === 'MARK') return true;
+  // Word and Google Docs wrap copied pages in white/background containers.
+  // Only inline run formatting represents a text highlight.
+  if (!['SPAN','FONT'].includes(element.tagName)) return false;
   const style = element.style;
   const background = (style.backgroundColor || element.getAttribute('bgcolor') || '').trim().toLowerCase();
   const officeHighlight = (style.getPropertyValue('mso-highlight') || '').trim().toLowerCase();
   if (officeHighlight && !['none','transparent'].includes(officeHighlight)) return true;
-  if (!background || ['none','transparent','rgba(0, 0, 0, 0)','rgba(0,0,0,0)'].includes(background)) return false;
+  if (!background || ['none','transparent','white','#fff','#ffffff','rgb(255, 255, 255)','rgb(255,255,255)','rgba(0, 0, 0, 0)','rgba(0,0,0,0)'].includes(background)) return false;
   const rgba = background.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/);
   if (rgba && Number(rgba[1]) === 0) return false;
   const hex = background.match(/^#(?:[\da-f]{6}|[\da-f]{8})$/i);
