@@ -56,9 +56,17 @@ function getTextEmphasis(textNode, root) {
 }
 
 function isHighlightedElement(element) {
+  if (element.tagName === 'MARK') return true;
   const style = element.style;
-  const background = style.backgroundColor || style.background || element.getAttribute('bgcolor') || style.getPropertyValue('mso-highlight');
-  return element.tagName === 'MARK' || Boolean(background && background !== 'transparent' && background !== 'none');
+  const background = (style.backgroundColor || element.getAttribute('bgcolor') || '').trim().toLowerCase();
+  const officeHighlight = (style.getPropertyValue('mso-highlight') || '').trim().toLowerCase();
+  if (officeHighlight && !['none','transparent'].includes(officeHighlight)) return true;
+  if (!background || ['none','transparent','rgba(0, 0, 0, 0)','rgba(0,0,0,0)'].includes(background)) return false;
+  const rgba = background.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/);
+  if (rgba && Number(rgba[1]) === 0) return false;
+  const hex = background.match(/^#(?:[\da-f]{6}|[\da-f]{8})$/i);
+  if (hex && background.length === 9 && background.endsWith('00')) return false;
+  return true;
 }
 
 const allowedPasteTags = new Set(['A','B','BLOCKQUOTE','BR','CODE','DEL','DIV','EM','I','LI','MARK','OL','P','S','SMALL','SPAN','STRIKE','STRONG','SUB','SUP','U','UL']);
